@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Generate a local Webtezza social media performance report PDF from uploaded screenshots and manual metrics." />
+  <title>Webtezza Report Generator</title>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" />
+  <link rel="preconnect" href="https://unpkg.com" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main class="app-shell">
+    <section class="hero" aria-labelledby="app-title">
+      <div>
+        <p class="eyebrow">Webtezza Social Reporting</p>
+        <h1 id="app-title">Webtezza Report Generator</h1>
+        <p class="hero-copy">Build a polished six-page monthly or weekly PDF report using only local browser data, uploaded overview screenshots, and your manually entered metrics.</p>
+      </div>
+      <div class="privacy-card">
+        <span class="privacy-icon" aria-hidden="true">🔒</span>
+        <strong>Local only</strong>
+        <p>Your screenshots and metrics stay in this browser. Nothing is uploaded or sent to a server.</p>
+      </div>
+    </section>
+
+    <form id="reportForm" class="control-panel">
+      <section class="panel-section">
+        <div class="section-heading">
+          <span>01</span>
+          <div>
+            <h2>Report Setup</h2>
+            <p>Choose the report type and date range.</p>
+          </div>
+        </div>
+        <div class="grid two-col">
+          <label class="field">
+            <span>Report Type</span>
+            <select id="reportType" name="reportType" required>
+              <option value="Monthly">Monthly Report</option>
+              <option value="Weekly">Weekly Report</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>Report Month / Week</span>
+            <input id="reportPeriod" name="reportPeriod" type="text" value="" placeholder="Enter month or week range" required />
+          </label>
+        </div>
+      </section>
+
+      <section class="panel-section">
+        <div class="section-heading">
+          <span>02</span>
+          <div>
+            <h2>Brand Header and Platform Screenshots</h2>
+            <p>Upload images that will be placed into the final PDF.</p>
+          </div>
+        </div>
+        <div class="grid four-col uploads">
+          <label class="upload-card">
+            <input id="logoUpload" type="file" accept="image/*" />
+            <span>Webtezza Header / Logo</span>
+            <img id="logoPreview" alt="Webtezza header preview" />
+          </label>
+          <label class="upload-card">
+            <input id="facebookUpload" type="file" accept="image/*" />
+            <span>Facebook Overview</span>
+            <img id="facebookPreview" alt="Facebook overview preview" />
+          </label>
+          <label class="upload-card">
+            <input id="instagramUpload" type="file" accept="image/*" />
+            <span>Instagram Overview</span>
+            <img id="instagramPreview" alt="Instagram overview preview" />
+          </label>
+          <label class="upload-card">
+            <input id="tiktokUpload" type="file" accept="image/*" />
+            <span>TikTok Overview</span>
+            <img id="tiktokPreview" alt="TikTok overview preview" />
+          </label>
+        </div>
+      </section>
+
+      <section class="panel-section">
+        <div class="section-heading">
+          <span>03</span>
+          <div>
+            <h2>Manual Platform Metrics</h2>
+            <p>Enter the headline numbers from each social channel.</p>
+          </div>
+        </div>
+        <div class="metric-tabs" role="tablist" aria-label="Platform metric panels">
+          <button type="button" class="tab active" data-platform="facebook">Facebook</button>
+          <button type="button" class="tab" data-platform="instagram">Instagram</button>
+          <button type="button" class="tab" data-platform="tiktok">TikTok</button>
+        </div>
+
+        <div class="platform-panel active" data-panel="facebook">
+          <h3>Facebook Metrics</h3>
+          <div class="grid four-col metric-grid" data-platform-inputs="facebook"></div>
+        </div>
+        <div class="platform-panel" data-panel="instagram">
+          <h3>Instagram Metrics</h3>
+          <div class="grid four-col metric-grid" data-platform-inputs="instagram"></div>
+        </div>
+        <div class="platform-panel" data-panel="tiktok">
+          <h3>TikTok Metrics</h3>
+          <div class="grid four-col metric-grid" data-platform-inputs="tiktok"></div>
+        </div>
+      </section>
+
+      <p id="validationMessage" class="validation-message" hidden></p>
+
+      <section class="actions">
+        <button class="secondary-button" id="resetButton" type="button">Reset All Data</button>
+        <button class="secondary-button" id="previewButton" type="button">Refresh Preview</button>
+        <button class="primary-button" id="downloadButton" type="button">Generate 6-Page PDF</button>
+      </section>
+    </form>
+
+    <section class="preview-wrap" aria-labelledby="preview-title">
+      <div class="preview-heading">
+        <div>
+          <p class="eyebrow">Live Report Preview</p>
+          <h2 id="preview-title">Six-page PDF layout</h2>
+        </div>
+        <p>Preview updates before export. PDF generation may take a moment while screenshots are rendered.</p>
+      </div>
+      <div id="reportPreview" class="report-preview"></div>
+    </section>
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>
