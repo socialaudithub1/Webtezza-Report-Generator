@@ -264,13 +264,18 @@ function getTopPlatform(metrics, field) {
 }
 
 function logoMarkup(isCover = false) {
-  if (isCover && uploads.logo) {
+  if (!isCover) {
+    return '';
+  }
+
+  if (uploads.logo) {
     return `<img class="brand-logo" src="${uploads.logo}" alt="Webtezza logo" />`;
   }
+
   return `
     <div class="logo-fallback" aria-label="Webtezza">
       <span class="logo-mark"></span>
-      <span>${isCover ? 'Webtezza' : 'WEBTEZZA'}</span>
+      <span>Webtezza</span>
     </div>
   `;
 }

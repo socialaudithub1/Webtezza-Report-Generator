@@ -287,29 +287,6 @@ input:focus, select:focus, textarea:focus {
   margin-bottom: 22px;
 }
 
-.report-header-dark {
-  margin: -30px -30px 24px;
-  padding: 25px 30px 20px;
-  color: var(--white);
-  background: linear-gradient(135deg, var(--navy-900), var(--navy-800));
-}
-
-.pdf-export .report-header-dark {
-  margin: -42px -42px 28px;
-  padding: 34px 42px 24px;
-}
-
-.report-header-dark div,
-.report-header-dark span:last-child {
-  display: grid;
-  gap: 4px;
-  justify-items: end;
-  color: #d7eaff;
-  font-size: 0.9rem;
-}
-
-.report-header-dark strong { color: var(--white); }
-
 .cover-header { margin-bottom: 56px; }
 
 .brand-logo {
