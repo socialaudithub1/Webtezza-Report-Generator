@@ -385,9 +385,9 @@ input:focus, select:focus, textarea:focus {
 .bullet-list { padding-left: 18px; margin: 8px 0 12px; }
 .bullet-list li { margin-bottom: 7px; }
 
-.screenshot-box { min-height: 270px; display: flex; flex-direction: column; }
+.screenshot-box { min-height: 330px; display: flex; flex-direction: column; }
 .screenshot-box img { width: 100%; flex: 1; min-height: 0; object-fit: contain; border-radius: 12px; background: #eef5ff; }
-.image-placeholder { flex: 1; min-height: 190px; display: grid; place-items: center; color: #7c90aa; border-radius: 12px; background: #eef5ff; text-align: center; padding: 20px; }
+.image-placeholder { flex: 1; min-height: 250px; display: grid; place-items: center; color: #7c90aa; border-radius: 12px; background: #eef5ff; text-align: center; padding: 20px; }
 
 .comparison-table { width: 100%; border-collapse: collapse; margin-top: 16px; overflow: hidden; border-radius: 14px; font-size: 0.78rem; }
 .comparison-table th { color: var(--white); background: #0b3158; text-align: left; }

@@ -264,7 +264,7 @@ function getTopPlatform(metrics, field) {
 }
 
 function logoMarkup(isCover = false) {
-  if (uploads.logo) {
+  if (isCover && uploads.logo) {
     return `<img class="brand-logo" src="${uploads.logo}" alt="Webtezza logo" />`;
   }
   return `
@@ -469,15 +469,15 @@ function addPdfHeader(pdf, title, pageNumber, period, isCover = false) {
     pdf.setTextColor(255, 255, 255);
   }
 
-  if (uploads.logo) {
+  if (isCover && uploads.logo) {
     try {
       const logoProps = pdf.getImageProperties(uploads.logo);
       const logoWidth = Math.min(120, logoProps.width * 40 / logoProps.height);
-      pdf.addImage(uploads.logo, 'JPEG', 40, isCover ? 34 : 18, logoWidth, 40, undefined, 'FAST');
+      pdf.addImage(uploads.logo, 'JPEG', 40, 34, logoWidth, 40, undefined, 'FAST');
     } catch (error) {
       pdf.setFont('helvetica', 'bold');
       pdf.setFontSize(14);
-      pdf.text('WEBTEZZA', 40, isCover ? 58 : 36);
+      pdf.text('WEBTEZZA', 40, 58);
     }
   } else {
     pdf.setFont('helvetica', 'bold');
@@ -585,23 +585,21 @@ function addPlatformPdfPage(pdf, platformKey, pageNumber, metrics, period) {
   pdf.setFont('helvetica', 'bold');
   pdf.setFontSize(12);
   pdf.text('Overview Screenshot', 40, 220);
-  addScreenshotToPdf(pdf, uploads[platformKey], 40, 235, 330, 255);
+  addScreenshotToPdf(pdf, uploads[platformKey], 40, 235, 515, 315);
 
   pdf.setFillColor(247, 251, 255);
   pdf.setDrawColor(220, 232, 246);
-  pdf.roundedRect(390, 235, 165, 255, 8, 8, 'FD');
+  pdf.roundedRect(40, 570, 515, 110, 8, 8, 'FD');
   pdf.setTextColor(11, 41, 75);
   pdf.setFont('helvetica', 'bold');
   pdf.setFontSize(12);
-  pdf.text('Summary', 405, 258);
+  pdf.text('Summary', 55, 592);
   pdf.setFont('helvetica', 'normal');
   pdf.setFontSize(10);
   pdf.setTextColor(70, 90, 115);
-  let y = 282;
-  y = addWrappedText(pdf, `Followers: ${pdfValue(platform.followers)}`, 405, y, 135, 14) + 4;
-  y = addWrappedText(pdf, `Link clicks: ${pdfValue(platform.clicks)}`, 405, y, 135, 14) + 4;
-  y = addWrappedText(pdf, `Top content: ${pdfValue(platform.topPost)}`, 405, y, 135, 14) + 8;
-  addWrappedText(pdf, platform.note || 'No note provided.', 405, y, 135, 14);
+  let y = 614;
+  y = addWrappedText(pdf, `Followers: ${pdfValue(platform.followers)} | Link clicks: ${pdfValue(platform.clicks)} | Top content: ${pdfValue(platform.topPost)}`, 55, y, 485, 14) + 8;
+  addWrappedText(pdf, platform.note || 'No note provided.', 55, y, 485, 14);
 }
 
 async function generatePdf() {

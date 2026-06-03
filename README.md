@@ -20,6 +20,7 @@ A static, browser-only web app for creating a six-page Webtezza-style social med
   6. Key Insights and Action Plan
 - Keep all uploaded files and metrics local in the browser. No backend, API, database, or paid service is used.
 - Reduce PDF size by resizing uploaded images to a maximum width of 1000px, converting them to JPEG quality 0.6, using real jsPDF text/tables for report content, and adding only uploaded images as compressed JPEG assets.
+- Keep uploaded images on the correct pages: the logo appears only in the cover PDF banner, and each platform screenshot appears only on its matching platform page.
 - Keep the live report preview working even if PDF library CDNs are blocked. If both PDF library fallbacks fail, the app opens the browser print dialog so you can choose **Save as PDF**.
 
 ## Local Usage
@@ -40,10 +41,11 @@ Then visit `http://localhost:8000`.
 2. Open `http://localhost:8000` in a browser.
 3. Confirm the metric fields are empty by default.
 4. Enter only Report Month/Week, then leave several metric fields empty. Empty metric fields should display as **N/A** in the preview and PDF.
-5. Upload the Webtezza header/logo and platform screenshots. The app resizes uploaded images locally before using them in the preview and PDF.
+5. Upload the Webtezza header/logo and three different Facebook, Instagram, and TikTok screenshots. The app resizes uploaded images locally before using them in the preview and PDF.
 6. Click **Refresh Preview** and confirm the report remains exactly six pages.
 7. Click **Generate 6-Page PDF**. The PDF should download even when optional metric fields are empty.
-8. Check the downloaded file size. For normal dashboard screenshots, the real PDF text/tables plus compressed JPEG screenshots should target a file size under 2MB.
+8. Open the PDF and confirm the logo appears only on the cover banner, the Facebook screenshot appears only on page 3, the Instagram screenshot appears only on page 4, and the TikTok screenshot appears only on page 5.
+9. Check the downloaded file size. For normal dashboard screenshots, the real PDF text/tables plus compressed JPEG screenshots should target a file size under 2MB.
 
 ## GitHub Pages Deployment
 
