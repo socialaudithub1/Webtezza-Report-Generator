@@ -1,49 +1,24 @@
 const metricFields = [
-  { key: 'reach', label: 'Reach', placeholder: '24,500' },
-  { key: 'impressions', label: 'Impressions / Views', placeholder: '58,900' },
-  { key: 'engagement', label: 'Engagement', placeholder: '3,420' },
-  { key: 'followers', label: 'Followers', placeholder: '12,700' },
-  { key: 'growth', label: 'Growth %', placeholder: '+4.2%' },
-  { key: 'clicks', label: 'Link Clicks', placeholder: '680' },
-  { key: 'topPost', label: 'Top Post / Content', placeholder: 'Summer offer reel' },
-  { key: 'note', label: 'Short Note', placeholder: 'Audience responded well to...' }
+  { key: 'reach', label: 'Reach', placeholder: 'Enter reach', required: true },
+  { key: 'impressions', label: 'Impressions / Views', placeholder: 'Enter impressions or views', required: true },
+  { key: 'engagement', label: 'Engagement', placeholder: 'Enter engagement', required: true },
+  { key: 'followers', label: 'Followers', placeholder: 'Enter followers', required: true },
+  { key: 'growth', label: 'Growth %', placeholder: 'Enter growth percentage', required: true },
+  { key: 'clicks', label: 'Link Clicks', placeholder: 'Enter link clicks', required: true },
+  { key: 'topPost', label: 'Top Post / Content', placeholder: 'Enter top content', required: false },
+  { key: 'note', label: 'Short Note', placeholder: 'Enter a short note', required: false }
 ];
 
-const platformDefaults = {
-  facebook: {
-    name: 'Facebook',
-    reach: '24,500',
-    impressions: '58,900',
-    engagement: '3,420',
-    followers: '12,700',
-    growth: '+4.2%',
-    clicks: '680',
-    topPost: 'Brand update post',
-    note: 'Stable reach with strong response to practical, benefit-led posts.'
-  },
-  instagram: {
-    name: 'Instagram',
-    reach: '31,200',
-    impressions: '74,300',
-    engagement: '5,860',
-    followers: '18,450',
-    growth: '+6.8%',
-    clicks: '540',
-    topPost: 'Product lifestyle reel',
-    note: 'Reels and visual storytelling created the strongest engagement lift.'
-  },
-  tiktok: {
-    name: 'TikTok',
-    reach: '42,800',
-    impressions: '96,100',
-    engagement: '7,240',
-    followers: '9,300',
-    growth: '+9.1%',
-    clicks: '310',
-    topPost: 'Behind-the-scenes clip',
-    note: 'Short, energetic videos helped attract new viewers and grow awareness.'
-  }
+const platforms = {
+  facebook: { name: 'Facebook' },
+  instagram: { name: 'Instagram' },
+  tiktok: { name: 'TikTok' }
 };
+
+const emptyMetricValues = metricFields.reduce((values, field) => {
+  values[field.key] = '';
+  return values;
+}, {});
 
 const uploads = {
   logo: '',
@@ -51,6 +26,13 @@ const uploads = {
   instagram: '',
   tiktok: ''
 };
+
+const uploadInputs = ['logoUpload', 'facebookUpload', 'instagramUpload', 'tiktokUpload'];
+const MAX_IMAGE_WIDTH = 1600;
+const JPEG_QUALITY = 0.75;
+const HTML2CANVAS_SCALE = 1.25;
+const A4_WIDTH_PT = 595.28;
+const A4_HEIGHT_PT = 841.89;
 
 const PDF_LIBRARY_SOURCES = {
   html2canvas: [
@@ -68,23 +50,44 @@ const reportType = document.getElementById('reportType');
 const reportPeriod = document.getElementById('reportPeriod');
 const downloadButton = document.getElementById('downloadButton');
 const previewButton = document.getElementById('previewButton');
+const resetButton = document.getElementById('resetButton');
+const validationMessage = document.getElementById('validationMessage');
+
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function displayValue(value) {
+  return value ? escapeHtml(value) : '—';
+}
 
 function createMetricInputs() {
-  Object.keys(platformDefaults).forEach((platform) => {
+  Object.keys(platforms).forEach((platform) => {
     const container = document.querySelector(`[data-platform-inputs="${platform}"]`);
     container.innerHTML = metricFields.map((field) => `
       <label class="field">
-        <span>${field.label}</span>
+        <span>${field.label}${field.required ? ' <em>required</em>' : ''}</span>
         <input
           data-metric-platform="${platform}"
           data-metric-key="${field.key}"
+          data-required-metric="${field.required ? 'true' : 'false'}"
           type="text"
-          value="${escapeHtml(platformDefaults[platform][field.key])}"
+          value=""
           placeholder="${escapeHtml(field.placeholder)}"
         />
       </label>
     `).join('');
   });
+}
+
+function setValidationMessage(message) {
+  validationMessage.textContent = message;
+  validationMessage.hidden = !message;
 }
 
 function setUpTabs() {
@@ -99,6 +102,30 @@ function setUpTabs() {
   });
 }
 
+function resizeImageToJpeg(file, maxWidth = MAX_IMAGE_WIDTH, quality = JPEG_QUALITY) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.addEventListener('load', () => {
+      const image = new Image();
+      image.addEventListener('load', () => {
+        const ratio = image.width > maxWidth ? maxWidth / image.width : 1;
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.round(image.width * ratio);
+        canvas.height = Math.round(image.height * ratio);
+        const context = canvas.getContext('2d');
+        context.fillStyle = '#ffffff';
+        context.fillRect(0, 0, canvas.width, canvas.height);
+        context.drawImage(image, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      });
+      image.addEventListener('error', () => reject(new Error('The selected image could not be loaded.')));
+      image.src = reader.result;
+    });
+    reader.addEventListener('error', () => reject(new Error('The selected image could not be read.')));
+    reader.readAsDataURL(file);
+  });
+}
+
 function setUpUploads() {
   const uploadConfig = [
     { id: 'logoUpload', preview: 'logoPreview', key: 'logo' },
@@ -110,7 +137,7 @@ function setUpUploads() {
   uploadConfig.forEach(({ id, preview, key }) => {
     const input = document.getElementById(id);
     const image = document.getElementById(preview);
-    input.addEventListener('change', (event) => {
+    input.addEventListener('change', async (event) => {
       const file = event.target.files[0];
       if (!file) {
         uploads[key] = '';
@@ -120,43 +147,18 @@ function setUpUploads() {
         return;
       }
 
-      const reader = new FileReader();
-      reader.addEventListener('load', () => {
-        uploads[key] = reader.result;
-        image.src = reader.result;
+      try {
+        const resizedImage = await resizeImageToJpeg(file);
+        uploads[key] = resizedImage;
+        image.src = resizedImage;
         image.closest('.upload-card').classList.add('has-image');
+        setValidationMessage('');
         renderReport();
-      });
-      reader.readAsDataURL(file);
+      } catch (error) {
+        setValidationMessage(error.message);
+      }
     });
   });
-}
-
-function escapeHtml(value) {
-  return String(value)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
-}
-
-function clonePlatformDefaults() {
-  return Object.keys(platformDefaults).reduce((copy, platform) => {
-    copy[platform] = Object.assign({}, platformDefaults[platform]);
-    return copy;
-  }, {});
-}
-
-function showPreviewError(error) {
-  console.error('Preview render failed.', error);
-  reportPreview.innerHTML = `
-    <div class="preview-error" role="alert">
-      <strong>Preview could not render.</strong>
-      <p>Please refresh the page and try again. The app keeps all data local in your browser.</p>
-      <small>${escapeHtml(error.message || error)}</small>
-    </div>
-  `;
 }
 
 function loadExternalScript(url) {
@@ -213,13 +215,40 @@ async function ensurePdfTools() {
 }
 
 function collectMetrics() {
-  const metrics = clonePlatformDefaults();
+  const metrics = {};
+  Object.keys(platforms).forEach((platform) => {
+    metrics[platform] = Object.assign({ name: platforms[platform].name }, emptyMetricValues);
+  });
+
   document.querySelectorAll('[data-metric-platform]').forEach((input) => {
     const platform = input.dataset.metricPlatform;
     const key = input.dataset.metricKey;
-    metrics[platform][key] = input.value.trim() || '—';
+    metrics[platform][key] = input.value.trim();
   });
   return metrics;
+}
+
+function validateRequiredMetrics() {
+  const missing = [];
+  if (!reportPeriod.value.trim()) {
+    missing.push('report month/week');
+  }
+
+  document.querySelectorAll('[data-required-metric="true"]').forEach((input) => {
+    if (!input.value.trim()) {
+      const panel = input.dataset.metricPlatform;
+      const field = metricFields.find((item) => item.key === input.dataset.metricKey);
+      missing.push(`${platforms[panel].name} ${field.label}`);
+    }
+  });
+
+  if (missing.length) {
+    setValidationMessage(`Please fill required fields before generating the PDF: ${missing.join(', ')}.`);
+    return false;
+  }
+
+  setValidationMessage('');
+  return true;
 }
 
 function numberFromMetric(value) {
@@ -227,8 +256,17 @@ function numberFromMetric(value) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function totalMetric(metrics, field) {
+  const total = Object.values(metrics).reduce((sum, platform) => sum + numberFromMetric(platform[field]), 0);
+  return total ? total.toLocaleString() : '—';
+}
+
 function getTopPlatform(metrics, field) {
-  return Object.values(metrics).reduce((winner, current) => {
+  const ranked = Object.values(metrics).filter((platform) => numberFromMetric(platform[field]) > 0);
+  if (!ranked.length) {
+    return { name: '—', [field]: '—' };
+  }
+  return ranked.reduce((winner, current) => {
     return numberFromMetric(current[field]) > numberFromMetric(winner[field]) ? current : winner;
   });
 }
@@ -257,8 +295,8 @@ function pageFooter(pageNumber) {
 function statCard(label, value, note = '') {
   return `
     <article class="stat-card">
-      <div class="stat-label">${label}</div>
-      <div class="stat-value">${escapeHtml(value)}</div>
+      <div class="stat-label">${escapeHtml(label)}</div>
+      <div class="stat-value">${displayValue(value)}</div>
       ${note ? `<div class="stat-note">${escapeHtml(note)}</div>` : ''}
     </article>
   `;
@@ -266,41 +304,41 @@ function statCard(label, value, note = '') {
 
 function screenshotMarkup(platformKey, platformName) {
   if (uploads[platformKey]) {
-    return `<img src="${uploads[platformKey]}" alt="${platformName} uploaded overview screenshot" />`;
+    return `<img src="${uploads[platformKey]}" alt="${escapeHtml(platformName)} uploaded overview screenshot" />`;
   }
-  return `<div class="image-placeholder">Upload the ${platformName} overview screenshot to place it here.</div>`;
+  return `<div class="image-placeholder">Upload the ${escapeHtml(platformName)} overview screenshot to place it here.</div>`;
 }
 
 function platformPage(platformKey, pageNumber, metrics) {
   const platform = metrics[platformKey];
+  const note = platform.note || 'Add a short note to explain what changed and what to improve next.';
   return `
     <section class="report-page">
-      <header class="report-header">
+      <header class="report-header report-header-dark">
         ${logoMarkup()}
-        <span class="platform-tag">${escapeHtml(platform.name)}</span>
+        <div><strong>${escapeHtml(platform.name)}</strong><span>${displayValue(reportPeriod.value)}</span></div>
       </header>
       <p class="report-kicker">Page ${pageNumber} · Channel Detail</p>
-      <h2 class="report-title">${escapeHtml(platform.name)} Performance</h2>
-      <p class="report-subtitle">${escapeHtml(platform.name)} delivered measurable activity during ${escapeHtml(reportPeriod.value)}. The focus is to keep the strongest content formats moving while improving consistency and conversion touchpoints.</p>
-      <div class="stat-grid">
-        ${statCard('Reach', platform.reach, 'People reached')}
-        ${statCard('Views / Impressions', platform.impressions, 'Content visibility')}
-        ${statCard('Engagement', platform.engagement, 'Reactions, comments, shares, saves')}
-        ${statCard('Audience Growth', platform.growth, 'Follower movement')}
+      <h2 class="report-title navy-title">${escapeHtml(platform.name)} Performance</h2>
+      <div class="stat-grid compact-stats">
+        ${statCard('Reach', platform.reach)}
+        ${statCard('Views / Impressions', platform.impressions)}
+        ${statCard('Engagement', platform.engagement)}
+        ${statCard('Growth', platform.growth)}
       </div>
-      <div class="two-panel">
+      <div class="two-panel platform-detail">
         <div class="screenshot-box">
-          <h3>Uploaded Overview</h3>
+          <h3>Overview Screenshot</h3>
           ${screenshotMarkup(platformKey, platform.name)}
         </div>
         <div class="insight-box">
-          <h3>What This Means</h3>
-          <p>${escapeHtml(platform.note)}</p>
+          <h3>Summary</h3>
           <ul class="bullet-list">
-            <li>Top content: <strong>${escapeHtml(platform.topPost)}</strong>.</li>
-            <li>Follower base: <strong>${escapeHtml(platform.followers)}</strong>.</li>
-            <li>Traffic signal: <strong>${escapeHtml(platform.clicks)}</strong> link clicks.</li>
+            <li>Followers: <strong>${displayValue(platform.followers)}</strong></li>
+            <li>Link clicks: <strong>${displayValue(platform.clicks)}</strong></li>
+            <li>Top content: <strong>${displayValue(platform.topPost)}</strong></li>
           </ul>
+          <p>${escapeHtml(note)}</p>
         </div>
       </div>
       ${pageFooter(pageNumber)}
@@ -311,64 +349,57 @@ function platformPage(platformKey, pageNumber, metrics) {
 function buildReportPages(metrics) {
   const topReach = getTopPlatform(metrics, 'reach');
   const topEngagement = getTopPlatform(metrics, 'engagement');
-  const totalReach = Object.values(metrics).reduce((sum, platform) => sum + numberFromMetric(platform.reach), 0).toLocaleString();
-  const totalEngagement = Object.values(metrics).reduce((sum, platform) => sum + numberFromMetric(platform.engagement), 0).toLocaleString();
-  const period = reportPeriod.value || 'Selected Period';
+  const period = reportPeriod.value.trim() || 'Report Period';
   const type = reportType.value;
 
   return `
     <section class="report-page cover">
-      <header class="report-header">
+      <header class="report-header cover-header">
         ${logoMarkup(true)}
         <span>${escapeHtml(period)}</span>
       </header>
       <p class="report-kicker">${escapeHtml(type)} Performance Snapshot</p>
       <h2 class="report-title">Social Media Performance Report</h2>
-      <p class="report-subtitle">A clear Webtezza-style overview of Facebook, Instagram, and TikTok performance for ${escapeHtml(period)}, designed for quick decisions and practical next steps.</p>
+      <p class="report-subtitle">A clean six-page Webtezza report built from your uploaded screenshots and manually entered social metrics.</p>
       <div class="stat-grid">
-        ${statCard('Total Reach', totalReach, 'Across Facebook, Instagram, and TikTok')}
-        ${statCard('Total Engagement', totalEngagement, 'Combined platform interactions')}
-        ${statCard('Top Reach Platform', topReach.name, `${topReach.reach} reach`)}
-        ${statCard('Top Engagement Platform', topEngagement.name, `${topEngagement.engagement} engagements`)}
+        ${statCard('Total Reach', totalMetric(metrics, 'reach'), 'Calculated from your entries')}
+        ${statCard('Total Engagement', totalMetric(metrics, 'engagement'), 'Calculated from your entries')}
+        ${statCard('Top Reach Platform', topReach.name, displayValue(topReach.reach))}
+        ${statCard('Top Engagement Platform', topEngagement.name, displayValue(topEngagement.engagement))}
       </div>
-      <div class="insight-box" style="background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.18); color: white;">
-        <h3 style="color:white;">Executive Summary</h3>
-        <p style="color:#d8eaff;">The report shows where audience attention is strongest, which platform is creating the most engagement, and which actions can help Webtezza turn social visibility into better brand momentum.</p>
+      <div class="cover-summary">
+        <h3>Report Summary</h3>
+        <p>This report highlights channel performance, compares platforms, and closes with a short action plan for the next reporting period.</p>
       </div>
       ${pageFooter(1)}
     </section>
 
     <section class="report-page">
-      <header class="report-header">${logoMarkup()}<span>${escapeHtml(period)}</span></header>
+      <header class="report-header report-header-dark">${logoMarkup()}<span>${escapeHtml(period)}</span></header>
       <p class="report-kicker">Page 2 · Platform Comparison</p>
-      <h2 class="report-title">Platform Comparison</h2>
-      <p class="report-subtitle">This page compares the three core social channels so performance patterns are easy to spot at a glance.</p>
+      <h2 class="report-title navy-title">Platform Comparison</h2>
+      <p class="report-subtitle">A side-by-side view of the numbers entered for Facebook, Instagram, and TikTok.</p>
       <table class="comparison-table">
         <thead>
-          <tr><th>Platform</th><th>Reach</th><th>Views</th><th>Engagement</th><th>Growth</th><th>Clicks</th></tr>
+          <tr><th>Platform</th><th>Reach</th><th>Views</th><th>Engagement</th><th>Followers</th><th>Growth</th><th>Clicks</th></tr>
         </thead>
         <tbody>
           ${Object.values(metrics).map((platform) => `
             <tr>
               <td><strong>${escapeHtml(platform.name)}</strong></td>
-              <td>${escapeHtml(platform.reach)}</td>
-              <td>${escapeHtml(platform.impressions)}</td>
-              <td>${escapeHtml(platform.engagement)}</td>
-              <td>${escapeHtml(platform.growth)}</td>
-              <td>${escapeHtml(platform.clicks)}</td>
+              <td>${displayValue(platform.reach)}</td>
+              <td>${displayValue(platform.impressions)}</td>
+              <td>${displayValue(platform.engagement)}</td>
+              <td>${displayValue(platform.followers)}</td>
+              <td>${displayValue(platform.growth)}</td>
+              <td>${displayValue(platform.clicks)}</td>
             </tr>
           `).join('')}
         </tbody>
       </table>
-      <div class="two-panel">
-        <div class="comparison-card">
-          <h3>Best Visibility</h3>
-          <p><strong>${escapeHtml(topReach.name)}</strong> generated the highest reach. Keep using the themes and formats that helped this audience discover the brand.</p>
-        </div>
-        <div class="comparison-card">
-          <h3>Best Engagement</h3>
-          <p><strong>${escapeHtml(topEngagement.name)}</strong> led engagement. This is the clearest signal for content that feels useful, timely, or easy to interact with.</p>
-        </div>
+      <div class="two-panel comparison-highlights">
+        <div class="comparison-card"><h3>Highest Reach</h3><p>${displayValue(topReach.name)} ${topReach.reach && topReach.reach !== '—' ? `led reach with ${displayValue(topReach.reach)}.` : 'will appear here after metrics are entered.'}</p></div>
+        <div class="comparison-card"><h3>Highest Engagement</h3><p>${displayValue(topEngagement.name)} ${topEngagement.engagement && topEngagement.engagement !== '—' ? `led engagement with ${displayValue(topEngagement.engagement)}.` : 'will appear here after metrics are entered.'}</p></div>
       </div>
       ${pageFooter(2)}
     </section>
@@ -377,21 +408,20 @@ function buildReportPages(metrics) {
     ${platformPage('instagram', 4, metrics)}
     ${platformPage('tiktok', 5, metrics)}
 
-    <section class="report-page">
-      <header class="report-header">${logoMarkup()}<span>${escapeHtml(period)}</span></header>
+    <section class="report-page action-page">
+      <header class="report-header report-header-dark">${logoMarkup()}<span>${escapeHtml(period)}</span></header>
       <p class="report-kicker">Page 6 · Key Insights and Action Plan</p>
-      <h2 class="report-title">Key Insights and Action Plan</h2>
-      <p class="report-subtitle">The next step is to repeat what worked, simplify what did not, and build a steady content rhythm that supports brand awareness and qualified action.</p>
-      <div class="action-list">
-        <div class="action-item"><span>1</span><div><strong>Double down on the top-performing format.</strong><p>${escapeHtml(topEngagement.name)} created the strongest engagement, so use its winning content style as a model for the next posting cycle.</p></div></div>
-        <div class="action-item"><span>2</span><div><strong>Turn reach into clear calls to action.</strong><p>Add simple next steps to posts with high visibility, such as visiting a page, sending a message, or saving the content.</p></div></div>
-        <div class="action-item"><span>3</span><div><strong>Keep creative short, direct, and human.</strong><p>Use benefit-led captions, clean visuals, and quick explanations that make the audience understand the value fast.</p></div></div>
-        <div class="action-item"><span>4</span><div><strong>Review results every cycle.</strong><p>Compare reach, engagement, growth, and clicks each ${escapeHtml(type.toLowerCase().replace(' report', ''))} to keep improving the content plan.</p></div></div>
+      <h2 class="report-title navy-title">Key Insights and Action Plan</h2>
+      <div class="action-summary">
+        <h3>Key Insight</h3>
+        <p>Use the strongest platform result as the lead content direction for the next ${escapeHtml(type.toLowerCase().replace(' report', ''))} cycle.</p>
       </div>
-      <div class="two-panel">
-        <div class="action-box"><h3>Content Focus</h3><p>Prioritize educational posts, proof-led stories, short videos, and practical brand updates that show Webtezza's value clearly.</p></div>
-        <div class="action-box"><h3>Measurement Focus</h3><p>Watch engagement rate, follower growth, and link clicks to understand whether awareness is turning into audience action.</p></div>
+      <div class="action-list short-actions">
+        <div class="action-item"><span>1</span><div><strong>Repeat what worked.</strong><p>Recreate the format, topic, and timing of the best-performing content.</p></div></div>
+        <div class="action-item"><span>2</span><div><strong>Improve conversion.</strong><p>Add one clear call to action to posts with strong reach or engagement.</p></div></div>
+        <div class="action-item"><span>3</span><div><strong>Review next cycle.</strong><p>Compare reach, engagement, growth, and clicks before adjusting the plan.</p></div></div>
       </div>
+      <div class="action-box final-note"><h3>Next Focus</h3><p>Keep the plan simple: publish consistently, track the same metrics, and prioritize content that creates measurable audience response.</p></div>
       ${pageFooter(6)}
     </section>
   `;
@@ -402,21 +432,53 @@ function renderReport() {
     const metrics = collectMetrics();
     reportPreview.innerHTML = buildReportPages(metrics);
   } catch (error) {
-    showPreviewError(error);
+    console.error('Preview render failed.', error);
+    reportPreview.innerHTML = `
+      <div class="preview-error" role="alert">
+        <strong>Preview could not render.</strong>
+        <p>Please refresh the page and try again. The app keeps all data local in your browser.</p>
+        <small>${escapeHtml(error.message || error)}</small>
+      </div>
+    `;
   }
+}
+
+function resetForm() {
+  reportPeriod.value = '';
+  document.querySelectorAll('[data-metric-platform]').forEach((input) => {
+    input.value = '';
+  });
+  Object.keys(uploads).forEach((key) => {
+    uploads[key] = '';
+  });
+  uploadInputs.forEach((id) => {
+    const input = document.getElementById(id);
+    input.value = '';
+  });
+  document.querySelectorAll('.upload-card').forEach((card) => {
+    card.classList.remove('has-image');
+    const image = card.querySelector('img');
+    image.removeAttribute('src');
+  });
+  setValidationMessage('');
+  renderReport();
 }
 
 async function generatePdf() {
   renderReport();
+  if (!validateRequiredMetrics()) {
+    return;
+  }
+
   downloadButton.disabled = true;
   downloadButton.textContent = 'Loading PDF tools...';
   let exportContainer;
 
   try {
     await ensurePdfTools();
-    downloadButton.textContent = 'Generating PDF...';
+    downloadButton.textContent = 'Generating smaller PDF...';
     const { jsPDF } = window.jspdf;
-    const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'letter' });
+    const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4', compress: true });
     exportContainer = document.createElement('div');
     exportContainer.className = 'pdf-export';
     exportContainer.style.position = 'fixed';
@@ -426,24 +488,28 @@ async function generatePdf() {
     document.body.appendChild(exportContainer);
 
     const pages = exportContainer.querySelectorAll('.report-page');
+    if (pages.length !== 6) {
+      throw new Error(`Expected 6 report pages, found ${pages.length}.`);
+    }
+
     for (let index = 0; index < pages.length; index += 1) {
       const canvas = await html2canvas(pages[index], {
-        scale: 2,
+        scale: HTML2CANVAS_SCALE,
         useCORS: true,
-        backgroundColor: null
+        backgroundColor: '#ffffff'
       });
-      const imageData = canvas.toDataURL('image/png');
+      const imageData = canvas.toDataURL('image/jpeg', JPEG_QUALITY);
       if (index > 0) {
-        pdf.addPage('letter', 'portrait');
+        pdf.addPage('a4', 'portrait');
       }
-      pdf.addImage(imageData, 'PNG', 0, 0, 612, 792);
+      pdf.addImage(imageData, 'JPEG', 0, 0, A4_WIDTH_PT, A4_HEIGHT_PT, undefined, 'FAST');
     }
 
     const safePeriod = (reportPeriod.value || 'report').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-    pdf.save(`webtezza-${reportType.value.toLowerCase()}-${safePeriod}.pdf`);
+    pdf.save(`webtezza-${reportType.value.toLowerCase()}-${safePeriod || 'report'}.pdf`);
   } catch (error) {
     console.warn('PDF libraries unavailable. Falling back to browser print.', error);
-    alert('The PDF libraries could not load from jsDelivr or unpkg. The report preview still works locally, and your browser print dialog will open so you can choose Save as PDF.');
+    alert('The PDF libraries could not load or the PDF could not be generated. The report preview still works locally, and your browser print dialog will open so you can choose Save as PDF.');
     window.print();
   } finally {
     if (exportContainer) {
@@ -462,9 +528,11 @@ renderReport();
 reportType.addEventListener('change', renderReport);
 reportPeriod.addEventListener('input', renderReport);
 previewButton.addEventListener('click', renderReport);
+resetButton.addEventListener('click', resetForm);
 downloadButton.addEventListener('click', generatePdf);
 document.addEventListener('input', (event) => {
   if (event.target.matches('[data-metric-platform]')) {
+    setValidationMessage('');
     renderReport();
   }
 });

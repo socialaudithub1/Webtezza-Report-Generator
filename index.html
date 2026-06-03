@@ -43,7 +43,7 @@
           </label>
           <label class="field">
             <span>Report Month / Week</span>
-            <input id="reportPeriod" name="reportPeriod" type="text" value="May 2026" placeholder="May 2026 or May 4–10, 2026" required />
+            <input id="reportPeriod" name="reportPeriod" type="text" value="" placeholder="Enter month or week range" required />
           </label>
         </div>
       </section>
@@ -108,7 +108,10 @@
         </div>
       </section>
 
+      <p id="validationMessage" class="validation-message" hidden></p>
+
       <section class="actions">
+        <button class="secondary-button" id="resetButton" type="button">Reset All Data</button>
         <button class="secondary-button" id="previewButton" type="button">Refresh Preview</button>
         <button class="primary-button" id="downloadButton" type="button">Generate 6-Page PDF</button>
       </section>
