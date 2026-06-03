@@ -1,12 +1,12 @@
 const metricFields = [
-  { key: 'reach', label: 'Reach', placeholder: 'Enter reach', required: true },
-  { key: 'impressions', label: 'Impressions / Views', placeholder: 'Enter impressions or views', required: true },
-  { key: 'engagement', label: 'Engagement', placeholder: 'Enter engagement', required: true },
-  { key: 'followers', label: 'Followers', placeholder: 'Enter followers', required: true },
-  { key: 'growth', label: 'Growth %', placeholder: 'Enter growth percentage', required: true },
-  { key: 'clicks', label: 'Link Clicks', placeholder: 'Enter link clicks', required: true },
-  { key: 'topPost', label: 'Top Post / Content', placeholder: 'Enter top content', required: false },
-  { key: 'note', label: 'Short Note', placeholder: 'Enter a short note', required: false }
+  { key: 'reach', label: 'Reach', placeholder: 'Enter reach', numeric: true },
+  { key: 'impressions', label: 'Impressions / Views', placeholder: 'Enter impressions or views', numeric: true },
+  { key: 'engagement', label: 'Engagement', placeholder: 'Enter engagement', numeric: true },
+  { key: 'followers', label: 'Followers', placeholder: 'Enter followers', numeric: true },
+  { key: 'growth', label: 'Growth %', placeholder: 'Enter growth percentage', numeric: true },
+  { key: 'clicks', label: 'Link Clicks', placeholder: 'Enter link clicks', numeric: true },
+  { key: 'topPost', label: 'Top Post / Content', placeholder: 'Enter top content', numeric: false },
+  { key: 'note', label: 'Short Note', placeholder: 'Enter a short note', numeric: false }
 ];
 
 const platforms = {
@@ -28,17 +28,12 @@ const uploads = {
 };
 
 const uploadInputs = ['logoUpload', 'facebookUpload', 'instagramUpload', 'tiktokUpload'];
-const MAX_IMAGE_WIDTH = 1600;
-const JPEG_QUALITY = 0.75;
-const HTML2CANVAS_SCALE = 1.25;
+const MAX_IMAGE_WIDTH = 1000;
+const JPEG_QUALITY = 0.6;
 const A4_WIDTH_PT = 595.28;
 const A4_HEIGHT_PT = 841.89;
 
 const PDF_LIBRARY_SOURCES = {
-  html2canvas: [
-    'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js',
-    'https://unpkg.com/html2canvas@1.4.1/dist/html2canvas.min.js'
-  ],
   jspdf: [
     'https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js',
     'https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js'
@@ -63,7 +58,11 @@ function escapeHtml(value) {
 }
 
 function displayValue(value) {
-  return value ? escapeHtml(value) : '—';
+  return value ? escapeHtml(value) : 'N/A';
+}
+
+function pdfValue(value) {
+  return value ? String(value) : 'N/A';
 }
 
 function createMetricInputs() {
@@ -71,11 +70,10 @@ function createMetricInputs() {
     const container = document.querySelector(`[data-platform-inputs="${platform}"]`);
     container.innerHTML = metricFields.map((field) => `
       <label class="field">
-        <span>${field.label}${field.required ? ' <em>required</em>' : ''}</span>
+        <span>${field.label}</span>
         <input
           data-metric-platform="${platform}"
           data-metric-key="${field.key}"
-          data-required-metric="${field.required ? 'true' : 'false'}"
           type="text"
           value=""
           placeholder="${escapeHtml(field.placeholder)}"
@@ -210,7 +208,6 @@ async function loadLibraryFromFallbacks(name, isReady) {
 }
 
 async function ensurePdfTools() {
-  await loadLibraryFromFallbacks('html2canvas', () => Boolean(window.html2canvas));
   await loadLibraryFromFallbacks('jspdf', () => Boolean(window.jspdf && window.jspdf.jsPDF));
 }
 
@@ -230,20 +227,15 @@ function collectMetrics() {
 
 function validateRequiredMetrics() {
   const missing = [];
+  if (!reportType.value.trim()) {
+    missing.push('report type');
+  }
   if (!reportPeriod.value.trim()) {
     missing.push('report month/week');
   }
 
-  document.querySelectorAll('[data-required-metric="true"]').forEach((input) => {
-    if (!input.value.trim()) {
-      const panel = input.dataset.metricPlatform;
-      const field = metricFields.find((item) => item.key === input.dataset.metricKey);
-      missing.push(`${platforms[panel].name} ${field.label}`);
-    }
-  });
-
   if (missing.length) {
-    setValidationMessage(`Please fill required fields before generating the PDF: ${missing.join(', ')}.`);
+    setValidationMessage(`Please enter ${missing.join(' and ')} before generating the PDF. Metrics are optional and will show as N/A if left empty.`);
     return false;
   }
 
@@ -258,13 +250,13 @@ function numberFromMetric(value) {
 
 function totalMetric(metrics, field) {
   const total = Object.values(metrics).reduce((sum, platform) => sum + numberFromMetric(platform[field]), 0);
-  return total ? total.toLocaleString() : '—';
+  return total.toLocaleString();
 }
 
 function getTopPlatform(metrics, field) {
   const ranked = Object.values(metrics).filter((platform) => numberFromMetric(platform[field]) > 0);
   if (!ranked.length) {
-    return { name: '—', [field]: '—' };
+    return { name: '', [field]: '' };
   }
   return ranked.reduce((winner, current) => {
     return numberFromMetric(current[field]) > numberFromMetric(winner[field]) ? current : winner;
@@ -464,6 +456,154 @@ function resetForm() {
   renderReport();
 }
 
+function addPdfHeader(pdf, title, pageNumber, period, isCover = false) {
+  if (isCover) {
+    pdf.setFillColor(7, 24, 42);
+    pdf.rect(0, 0, A4_WIDTH_PT, 130, 'F');
+    pdf.setFillColor(15, 95, 184);
+    pdf.rect(0, 126, A4_WIDTH_PT, 4, 'F');
+    pdf.setTextColor(255, 255, 255);
+  } else {
+    pdf.setFillColor(8, 27, 49);
+    pdf.rect(0, 0, A4_WIDTH_PT, 62, 'F');
+    pdf.setTextColor(255, 255, 255);
+  }
+
+  if (uploads.logo) {
+    try {
+      const logoProps = pdf.getImageProperties(uploads.logo);
+      const logoWidth = Math.min(120, logoProps.width * 40 / logoProps.height);
+      pdf.addImage(uploads.logo, 'JPEG', 40, isCover ? 34 : 18, logoWidth, 40, undefined, 'FAST');
+    } catch (error) {
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(14);
+      pdf.text('WEBTEZZA', 40, isCover ? 58 : 36);
+    }
+  } else {
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(14);
+    pdf.text('WEBTEZZA', 40, isCover ? 58 : 36);
+  }
+
+  pdf.setFont('helvetica', 'normal');
+  pdf.setFontSize(9);
+  pdf.text(period, A4_WIDTH_PT - 40, isCover ? 58 : 36, { align: 'right' });
+  pdf.setFont('helvetica', 'bold');
+  pdf.setFontSize(isCover ? 28 : 18);
+  pdf.text(title, 40, isCover ? 102 : 96);
+}
+
+function addPdfFooter(pdf, pageNumber) {
+  pdf.setDrawColor(210, 224, 240);
+  pdf.line(40, A4_HEIGHT_PT - 34, A4_WIDTH_PT - 40, A4_HEIGHT_PT - 34);
+  pdf.setTextColor(110, 130, 150);
+  pdf.setFont('helvetica', 'normal');
+  pdf.setFontSize(8);
+  pdf.text(`Webtezza ${reportType.value} Performance Report`, 40, A4_HEIGHT_PT - 18);
+  pdf.text(`Page ${pageNumber} of 6`, A4_WIDTH_PT - 40, A4_HEIGHT_PT - 18, { align: 'right' });
+}
+
+function addWrappedText(pdf, text, x, y, width, lineHeight = 13) {
+  const lines = pdf.splitTextToSize(text, width);
+  pdf.text(lines, x, y);
+  return y + (lines.length * lineHeight);
+}
+
+function addPdfStat(pdf, label, value, x, y, width, height) {
+  pdf.setFillColor(247, 251, 255);
+  pdf.setDrawColor(220, 232, 246);
+  pdf.roundedRect(x, y, width, height, 8, 8, 'FD');
+  pdf.setTextColor(105, 125, 150);
+  pdf.setFont('helvetica', 'bold');
+  pdf.setFontSize(8);
+  pdf.text(label.toUpperCase(), x + 10, y + 16);
+  pdf.setTextColor(11, 41, 75);
+  pdf.setFontSize(15);
+  pdf.text(pdfValue(value), x + 10, y + 36, { maxWidth: width - 20 });
+}
+
+function addScreenshotToPdf(pdf, dataUrl, x, y, maxWidth, maxHeight) {
+  if (!dataUrl) {
+    pdf.setFillColor(238, 245, 255);
+    pdf.setDrawColor(220, 232, 246);
+    pdf.roundedRect(x, y, maxWidth, maxHeight, 8, 8, 'FD');
+    pdf.setTextColor(124, 144, 170);
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(10);
+    pdf.text('Screenshot not uploaded', x + maxWidth / 2, y + maxHeight / 2, { align: 'center' });
+    return;
+  }
+
+  const props = pdf.getImageProperties(dataUrl);
+  const ratio = Math.min(maxWidth / props.width, maxHeight / props.height);
+  const width = props.width * ratio;
+  const height = props.height * ratio;
+  pdf.addImage(dataUrl, 'JPEG', x, y, width, height, undefined, 'FAST');
+}
+
+function addComparisonTable(pdf, metrics, x, y) {
+  const columns = ['Platform', 'Reach', 'Views', 'Engagement', 'Followers', 'Growth', 'Clicks'];
+  const widths = [80, 70, 76, 76, 76, 58, 58];
+  pdf.setFontSize(8);
+  pdf.setFont('helvetica', 'bold');
+  pdf.setFillColor(11, 49, 88);
+  pdf.setTextColor(255, 255, 255);
+  let cursorX = x;
+  columns.forEach((column, index) => {
+    pdf.rect(cursorX, y, widths[index], 24, 'F');
+    pdf.text(column, cursorX + 5, y + 15);
+    cursorX += widths[index];
+  });
+
+  pdf.setFont('helvetica', 'normal');
+  Object.values(metrics).forEach((platform, rowIndex) => {
+    cursorX = x;
+    const rowY = y + 24 + (rowIndex * 28);
+    const values = [platform.name, platform.reach, platform.impressions, platform.engagement, platform.followers, platform.growth, platform.clicks];
+    pdf.setFillColor(rowIndex % 2 ? 255 : 247, rowIndex % 2 ? 255 : 251, rowIndex % 2 ? 255 : 255);
+    pdf.setTextColor(55, 75, 100);
+    values.forEach((value, index) => {
+      pdf.rect(cursorX, rowY, widths[index], 28, 'F');
+      pdf.text(pdfValue(value), cursorX + 5, rowY + 17, { maxWidth: widths[index] - 10 });
+      cursorX += widths[index];
+    });
+  });
+}
+
+function addPlatformPdfPage(pdf, platformKey, pageNumber, metrics, period) {
+  const platform = metrics[platformKey];
+  addPdfHeader(pdf, `${platform.name} Performance`, pageNumber, period);
+  addPdfFooter(pdf, pageNumber);
+
+  const startY = 130;
+  addPdfStat(pdf, 'Reach', platform.reach, 40, startY, 118, 52);
+  addPdfStat(pdf, 'Views / Impressions', platform.impressions, 170, startY, 130, 52);
+  addPdfStat(pdf, 'Engagement', platform.engagement, 312, startY, 118, 52);
+  addPdfStat(pdf, 'Growth', platform.growth, 442, startY, 113, 52);
+
+  pdf.setTextColor(11, 41, 75);
+  pdf.setFont('helvetica', 'bold');
+  pdf.setFontSize(12);
+  pdf.text('Overview Screenshot', 40, 220);
+  addScreenshotToPdf(pdf, uploads[platformKey], 40, 235, 330, 255);
+
+  pdf.setFillColor(247, 251, 255);
+  pdf.setDrawColor(220, 232, 246);
+  pdf.roundedRect(390, 235, 165, 255, 8, 8, 'FD');
+  pdf.setTextColor(11, 41, 75);
+  pdf.setFont('helvetica', 'bold');
+  pdf.setFontSize(12);
+  pdf.text('Summary', 405, 258);
+  pdf.setFont('helvetica', 'normal');
+  pdf.setFontSize(10);
+  pdf.setTextColor(70, 90, 115);
+  let y = 282;
+  y = addWrappedText(pdf, `Followers: ${pdfValue(platform.followers)}`, 405, y, 135, 14) + 4;
+  y = addWrappedText(pdf, `Link clicks: ${pdfValue(platform.clicks)}`, 405, y, 135, 14) + 4;
+  y = addWrappedText(pdf, `Top content: ${pdfValue(platform.topPost)}`, 405, y, 135, 14) + 8;
+  addWrappedText(pdf, platform.note || 'No note provided.', 405, y, 135, 14);
+}
+
 async function generatePdf() {
   renderReport();
   if (!validateRequiredMetrics()) {
@@ -472,37 +612,74 @@ async function generatePdf() {
 
   downloadButton.disabled = true;
   downloadButton.textContent = 'Loading PDF tools...';
-  let exportContainer;
 
   try {
     await ensurePdfTools();
-    downloadButton.textContent = 'Generating smaller PDF...';
+    downloadButton.textContent = 'Generating small PDF...';
     const { jsPDF } = window.jspdf;
+    const metrics = collectMetrics();
+    const period = reportPeriod.value.trim();
+    const type = reportType.value;
+    const topReach = getTopPlatform(metrics, 'reach');
+    const topEngagement = getTopPlatform(metrics, 'engagement');
     const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4', compress: true });
-    exportContainer = document.createElement('div');
-    exportContainer.className = 'pdf-export';
-    exportContainer.style.position = 'fixed';
-    exportContainer.style.left = '-99999px';
-    exportContainer.style.top = '0';
-    exportContainer.innerHTML = buildReportPages(collectMetrics());
-    document.body.appendChild(exportContainer);
 
-    const pages = exportContainer.querySelectorAll('.report-page');
-    if (pages.length !== 6) {
-      throw new Error(`Expected 6 report pages, found ${pages.length}.`);
-    }
+    addPdfHeader(pdf, 'Social Media Performance Report', 1, period, true);
+    addPdfFooter(pdf, 1);
+    pdf.setTextColor(210, 234, 255);
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(11);
+    addWrappedText(pdf, `A six-page ${type.toLowerCase()} report built from your uploaded screenshots and manually entered social metrics. Empty metrics display as N/A.`, 40, 155, 500, 15);
+    addPdfStat(pdf, 'Total Reach', totalMetric(metrics, 'reach'), 40, 230, 240, 64);
+    addPdfStat(pdf, 'Total Engagement', totalMetric(metrics, 'engagement'), 315, 230, 240, 64);
+    addPdfStat(pdf, 'Top Reach Platform', topReach.name, 40, 315, 240, 64);
+    addPdfStat(pdf, 'Top Engagement Platform', topEngagement.name, 315, 315, 240, 64);
+    pdf.setTextColor(255, 255, 255);
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(14);
+    pdf.text('Summary', 40, 450);
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(11);
+    addWrappedText(pdf, 'Use this report to compare channels, review platform screenshots, and set a short action plan for the next reporting period.', 40, 472, 500, 15);
 
-    for (let index = 0; index < pages.length; index += 1) {
-      const canvas = await html2canvas(pages[index], {
-        scale: HTML2CANVAS_SCALE,
-        useCORS: true,
-        backgroundColor: '#ffffff'
-      });
-      const imageData = canvas.toDataURL('image/jpeg', JPEG_QUALITY);
-      if (index > 0) {
-        pdf.addPage('a4', 'portrait');
-      }
-      pdf.addImage(imageData, 'JPEG', 0, 0, A4_WIDTH_PT, A4_HEIGHT_PT, undefined, 'FAST');
+    pdf.addPage('a4', 'portrait');
+    addPdfHeader(pdf, 'Platform Comparison', 2, period);
+    addPdfFooter(pdf, 2);
+    pdf.setTextColor(88, 112, 141);
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(10);
+    pdf.text('Empty metric fields show as N/A. Empty number fields count as 0 only for totals and ranking.', 40, 125);
+    addComparisonTable(pdf, metrics, 40, 150);
+    pdf.setTextColor(11, 41, 75);
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(12);
+    pdf.text('Highlights', 40, 290);
+    pdf.setFont('helvetica', 'normal');
+    pdf.setTextColor(70, 90, 115);
+    addWrappedText(pdf, `Highest reach: ${pdfValue(topReach.name)}. Highest engagement: ${pdfValue(topEngagement.name)}.`, 40, 312, 500, 15);
+
+    ['facebook', 'instagram', 'tiktok'].forEach((platformKey, index) => {
+      pdf.addPage('a4', 'portrait');
+      addPlatformPdfPage(pdf, platformKey, index + 3, metrics, period);
+    });
+
+    pdf.addPage('a4', 'portrait');
+    addPdfHeader(pdf, 'Key Insights and Action Plan', 6, period);
+    addPdfFooter(pdf, 6);
+    pdf.setTextColor(11, 41, 75);
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(13);
+    pdf.text('Short Action Plan', 40, 135);
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(11);
+    pdf.setTextColor(70, 90, 115);
+    let actionY = 165;
+    actionY = addWrappedText(pdf, '1. Repeat the strongest content format from the best-performing platform.', 40, actionY, 500, 16) + 8;
+    actionY = addWrappedText(pdf, '2. Add one clear call to action to posts with strong reach or engagement.', 40, actionY, 500, 16) + 8;
+    addWrappedText(pdf, '3. Review reach, engagement, growth, and clicks in the next report cycle.', 40, actionY, 500, 16);
+
+    if (pdf.getNumberOfPages() !== 6) {
+      throw new Error(`Expected 6 report pages, found ${pdf.getNumberOfPages()}.`);
     }
 
     const safePeriod = (reportPeriod.value || 'report').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
@@ -512,9 +689,6 @@ async function generatePdf() {
     alert('The PDF libraries could not load or the PDF could not be generated. The report preview still works locally, and your browser print dialog will open so you can choose Save as PDF.');
     window.print();
   } finally {
-    if (exportContainer) {
-      exportContainer.remove();
-    }
     downloadButton.disabled = false;
     downloadButton.textContent = 'Generate 6-Page PDF';
   }
